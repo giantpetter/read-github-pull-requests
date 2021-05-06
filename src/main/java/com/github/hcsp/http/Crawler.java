@@ -1,14 +1,13 @@
 package com.github.hcsp.http;
 
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,7 +36,7 @@ public class Crawler {
         List<GitHubPullRequest> list = new ArrayList<>();
         try (
                 CloseableHttpClient httpclient = HttpClients.createDefault()) {
-            HttpGet httpGet = new HttpGet("https://github.com/" + repo + "/pulls");
+            HttpGet httpGet = new HttpGet("https://api.github.com/repos/" + repo + "/pulls");
             try (CloseableHttpResponse response = httpclient.execute(httpGet)) {
                 System.out.println(response.getStatusLine());
                 HttpEntity entity1 = response.getEntity();
@@ -45,15 +44,15 @@ public class Crawler {
                 // and ensure it is fully consumed
                 InputStream is = entity1.getContent();
                 String html = IOUtils.toString(is, StandardCharsets.UTF_8);
-                Document doc = Jsoup.parse(html);
-                ArrayList<Element> pulls = doc.select(".js-issue-row");
+                JSONArray pulls = JSONArray.parseArray(html);
 
-                for (Element element : pulls) {
-                    int size = element.child(0).child(1).childrenSize();
-                    int number = Integer.parseInt(element.child(0).child(1).child(size - 1).child(0).text().substring(1, 6));
-                    String title = element.child(0).child(1).child(0).text();
-                    String author = element.child(0).child(1).child(size - 1).child(0).child(1).text();
-                    list.add(new GitHubPullRequest(number, title, author));
+                for (int i = 0; i < pulls.size(); i++) {
+                    JSONObject object = pulls.getJSONObject(i);
+                    int number = object.getInteger("number");
+                    String title = object.getString("title");
+                    String author = object.getJSONObject("user").getString("login");
+                    GitHubPullRequest pull = new GitHubPullRequest(number, title, author);
+                    list.add(pull);
                 }
             }
         }
